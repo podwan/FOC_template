@@ -44,7 +44,7 @@ uint16_t getRawCount(void) // 获取编码器的原始值
 
 /******************************************************************************/
 // 初始化三种SPI接口的编码器的参数, 初始化I2C接口或者SPI接口
-void MagneticSensor_Init(float zero_electric_offset, Direction _sensor_direction)
+void magneticSensorInit(float zero_electric_offset, Direction _sensor_direction, BldcMotor *motor)
 {
 #if AS5600
     cpr = AS5600_CPR;
@@ -87,16 +87,16 @@ void MagneticSensor_Init(float zero_electric_offset, Direction _sensor_direction
         countDirection = _sensor_direction;
     }
 
-    alignSensor(); // 检测零点偏移量和极对数
+    alignSensor(motor); // 检测零点偏移量和极对数
 
     // shaftAngle update
     angle_prev = getAngle(); // getVelocity(),make sure velocity=0 after power on
     delay(50);
-    shaftVelocity = getShaftVelocity(&bldcMotor); // 必须调用一次，进入主循环后速度为0
+    shaftVelocity = getShaftVelocity(motor); // 必须调用一次，进入主循环后速度为0
     delay(5);
     shaftAngle = getShaftAngle(); // shaft angle
-    if (bldcMotor.controlMode == ANGLE)
-        target = shaftAngle; // 角度模式，以当前的角度为目标角度，进入主循环后电机静止
+    if (motor->controlMode == ANGLE)
+        motor->target = shaftAngle; // 角度模式，以当前的角度为目标角度，进入主循环后电机静止
 
     velocityTimestamp = micros();
     HAL_Delay(1);
@@ -159,7 +159,7 @@ float getVelocity(void)
 }
 
 /******************************************************************************/
-bool alignSensor(void)
+bool alignSensor(BldcMotor *motor)
 {
     long i;
     float angle;
@@ -175,7 +175,7 @@ bool alignSensor(void)
         for (i = 0; i <= 500; i++)
         {
             angle = _3PI_2 + _2PI * i / 500.0f;
-            setPhaseVoltage(bldcMotor.voltageUsedForSensorAlign, 0, angle);
+            setPhaseVoltage(motor->voltageUsedForSensorAlign, 0, angle);
             delay(2);
         }
         mid_angle = getAngle();
@@ -183,7 +183,7 @@ bool alignSensor(void)
         for (i = 500; i >= 0; i--)
         {
             angle = _3PI_2 + _2PI * i / 500.0f;
-            setPhaseVoltage(bldcMotor.voltageUsedForSensorAlign, 0, angle);
+            setPhaseVoltage(motor->voltageUsedForSensorAlign, 0, angle);
             delay(2);
         }
         end_angle = getAngle();
@@ -226,7 +226,7 @@ bool alignSensor(void)
 
     if (zero_electric_angle == 0) // 没有设置，需要检测
     {
-        setPhaseVoltage(bldcMotor.voltageUsedForSensorAlign, 0, _3PI_2); // 计算零点偏移角度
+        setPhaseVoltage(motor->voltageUsedForSensorAlign, 0, _3PI_2); // 计算零点偏移角度
         delay(700);
         zero_electric_angle = normalizeAngle(getShaftAngle() * polePairs);
         delay(20);
@@ -258,7 +258,7 @@ float getShaftAngle(void)
     return countDirection * getAngle() - sensor_offset;
 }
 // shaft velocity calculation
-float getShaftVelocity(BldcMotor * motor)
+float getShaftVelocity(BldcMotor *motor)
 {
     // if no sensor linked return previous value ( for open loop )
     // if(!sensor) return shaftVelocity;

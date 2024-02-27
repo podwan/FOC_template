@@ -1,37 +1,30 @@
 #include <cmath>
 #include <cstdio>
 #include "knob.h"
-#include "st_hardware.h"
 
+BldcMotor *motor;
+KnobMode mode = MODE_DISABLE;
+float zeroPosition = 0;
+float limitPositionMax = 5.1;
+float limitPositionMin = 3.3;
+int encoderDivides = 12;
+int encoderPosition = 0;
 
-void KnobSimulator::Init(Motor* _motor)
+float lastAngle;
+float lastVelocity;
+
+void knobSimulatorInit(BldcMotor *motor)
 {
-    motor = _motor;
-    motor->config.bldcMotor.controlMode = Motor::ControlMode_t::TORQUE;
-    motor->config.voltageLimit = 1.5;
-    motor->config.voltageLimit = 100;
-    motor->config.bldcMotor.pidVelocity.p = 0.1;
-    motor->config.bldcMotor.pidVelocity.i = 0.0;
-    motor->config.bldcMotor.pidVelocity.d = 0.0;
-    motor->config.bldcMotor.pidAngle.p = 80;
-    motor->config.bldcMotor.pidAngle.i = 0;
-    motor->config.bldcMotor.pidAngle.d = 0.7;
 
-    // When motor calibrated, we can replace Init with something like:
-    // motor->Init(1.815850, EncoderBase::CW)
-    if (motor->Init())
-    {
-        printf("ZeroElectricAngleOffset: %f | Encoder direction: %s\n", motor->zeroElectricAngleOffset,
-               motor->encoder->countDirection == EncoderBase::CW ? "CW" : "CCW");
-        motor->target = 0;
-        motor->SetEnable(false);
-    } else
-        printf("Error[%d]\n", motor->error);
+    motor->controlMode = TORQUE;
+    motor->voltageLimit = 1.5;
+    motor->velocityLimit = 100;
 
+    pidInit(&motor->pidVelocity, 0.1, 0, 0, 1000, -motor->voltageLimit, motor->voltageLimit);
+    pidInit(&motor->pidAngle, 80, 0, 0.7, 0, -motor->velocityLimit, motor->velocityLimit);
 }
 
-
-void KnobSimulator::SetMode(KnobSimulator::Mode_t _mode)
+void knobSimulatorSetMode(KnobSimulator::Mode_t _mode)
 {
     mode = _mode;
 
@@ -40,177 +33,174 @@ void KnobSimulator::SetMode(KnobSimulator::Mode_t _mode)
 
     switch (mode)
     {
-        case MODE_DISABLE:
-            motor->SetEnable(false);
-            break;
-        case MODE_INERTIA:
-        {
-            motor->SetEnable(true);
-            motor->SetTorqueLimit(0.5);
-            motor->config.bldcMotor.controlMode = Motor::VELOCITY;
-            motor->config.bldcMotor.pidVelocity.p = 0.1;
-            motor->config.bldcMotor.pidVelocity.i = 0.0;
-            motor->config.bldcMotor.pidVelocity.d = 0.0;
-            motor->config.bldcMotor.pidAngle.p = 20;
-            motor->config.bldcMotor.pidAngle.i = 0;
-            motor->config.bldcMotor.pidAngle.d = 0.7;
-            motor->target = 0;
-        }
-            break;
-        case MODE_ENCODER:
-        {
-            motor->SetEnable(true);
-            motor->SetTorqueLimit(1.5);
-            motor->config.bldcMotor.controlMode = Motor::ControlMode_t::ANGLE;
-            motor->config.bldcMotor.pidVelocity.p = 0.1;
-            motor->config.bldcMotor.pidVelocity.i = 0.0;
-            motor->config.bldcMotor.pidVelocity.d = 0.0;
-            motor->config.bldcMotor.pidAngle.p = 100;
-            motor->config.bldcMotor.pidAngle.i = 0;
-            motor->config.bldcMotor.pidAngle.d = 3.5;
-            motor->target = 4.2;
-            lastAngle = 4.2;
-        }
-            break;
-        case MODE_SPRING:
-        {
-            motor->SetEnable(true);
-            motor->SetTorqueLimit(1.5);
-            motor->config.bldcMotor.controlMode = Motor::ControlMode_t::ANGLE;
-            motor->config.bldcMotor.pidVelocity.p = 0.1;
-            motor->config.bldcMotor.pidVelocity.i = 0.0;
-            motor->config.bldcMotor.pidVelocity.d = 0.0;
-            motor->config.bldcMotor.pidAngle.p = 100;
-            motor->config.bldcMotor.pidAngle.i = 0;
-            motor->config.bldcMotor.pidAngle.d = 3.5;
-            motor->target = 4.2;
-        }
-            break;
-        case MODE_DAMPED:
-        {
-            motor->SetEnable(true);
-            motor->SetTorqueLimit(1.5);
-            motor->config.bldcMotor.controlMode = Motor::ControlMode_t::VELOCITY;
-            motor->config.bldcMotor.pidVelocity.p = 0.1;
-            motor->config.bldcMotor.pidVelocity.i = 0.0;
-            motor->config.bldcMotor.pidVelocity.d = 0.0;
-            motor->target = 0;
-        }
-            break;
-        case MODE_SPIN:
-        {
-            motor->SetEnable(true);
-            motor->SetTorqueLimit(1.5);
-            motor->config.bldcMotor.controlMode = Motor::ControlMode_t::VELOCITY;
-            motor->config.bldcMotor.pidVelocity.p = 0.3;
-            motor->config.bldcMotor.pidVelocity.i = 0.0;
-            motor->config.bldcMotor.pidVelocity.d = 0.0;
-            motor->target = 20;
-        }
-            break;
+    case MODE_DISABLE:
+        motor->SetEnable(false);
+        break;
+    case MODE_INERTIA:
+    {
+        motor->SetEnable(true);
+        motor->SetTorqueLimit(0.5);
+        motor->controlMode = VELOCITY;
+        motor->pidVelocity.P = 0.1;
+        motor->pidVelocity.I = 0.0;
+        motor->pidVelocity.D = 0.0;
+        motor->pidAngle.P = 20;
+        motor->pidAngle.I = 0;
+        motor->pidAngle.D = 0.7;
+        motor->target = 0;
+    }
+    break;
+    case MODE_ENCODER:
+    {
+        motor->SetEnable(true);
+        motor->SetTorqueLimit(1.5);
+        motor->config.bldcMotor.controlMode = Motor::ControlMode_t::ANGLE;
+        motor->config.bldcMotor.pidVelocity.p = 0.1;
+        motor->config.bldcMotor.pidVelocity.i = 0.0;
+        motor->config.bldcMotor.pidVelocity.d = 0.0;
+        motor->config.bldcMotor.pidAngle.p = 100;
+        motor->config.bldcMotor.pidAngle.i = 0;
+        motor->config.bldcMotor.pidAngle.d = 3.5;
+        motor->target = 4.2;
+        lastAngle = 4.2;
+    }
+    break;
+    case MODE_SPRING:
+    {
+        motor->SetEnable(true);
+        motor->SetTorqueLimit(1.5);
+        motor->config.bldcMotor.controlMode = Motor::ControlMode_t::ANGLE;
+        motor->config.bldcMotor.pidVelocity.p = 0.1;
+        motor->config.bldcMotor.pidVelocity.i = 0.0;
+        motor->config.bldcMotor.pidVelocity.d = 0.0;
+        motor->config.bldcMotor.pidAngle.p = 100;
+        motor->config.bldcMotor.pidAngle.i = 0;
+        motor->config.bldcMotor.pidAngle.d = 3.5;
+        motor->target = 4.2;
+    }
+    break;
+    case MODE_DAMPED:
+    {
+        motor->SetEnable(true);
+        motor->SetTorqueLimit(1.5);
+        motor->config.bldcMotor.controlMode = Motor::ControlMode_t::VELOCITY;
+        motor->config.bldcMotor.pidVelocity.p = 0.1;
+        motor->config.bldcMotor.pidVelocity.i = 0.0;
+        motor->config.bldcMotor.pidVelocity.d = 0.0;
+        motor->target = 0;
+    }
+    break;
+    case MODE_SPIN:
+    {
+        motor->SetEnable(true);
+        motor->SetTorqueLimit(1.5);
+        motor->config.bldcMotor.controlMode = Motor::ControlMode_t::VELOCITY;
+        motor->config.bldcMotor.pidVelocity.p = 0.3;
+        motor->config.bldcMotor.pidVelocity.i = 0.0;
+        motor->config.bldcMotor.pidVelocity.d = 0.0;
+        motor->target = 20;
+    }
+    break;
     }
 }
 
-
-void KnobSimulator::Tick()
+void knobSimulatorTick()
 {
     switch (mode)
     {
-        case MODE_INERTIA:
+    case MODE_INERTIA:
+    {
+        auto v = GetVelocity();
+        if (v > 1 || v < -1)
         {
-            auto v = GetVelocity();
-            if (v > 1 || v < -1)
-            {
-                if (std::abs(v - lastVelocity) > 0.3)
-                    motor->target = v;
-            } else
-            {
-                motor->target = 0;
-            }
-            lastVelocity = v;
+            if (abs(v - lastVelocity) > 0.3)
+                motor->target = v;
         }
-            break;
-        case MODE_ENCODER:
+        else
+        {
+            motor->target = 0;
+        }
+        lastVelocity = v;
+    }
+    break;
+    case MODE_ENCODER:
+    {
+        auto a = GetPosition();
+        if (a - lastAngle > _PI / (float)encoderDivides)
+        {
+            motor->target += _2PI / (float)encoderDivides;
+            lastAngle = motor->target;
+            encoderPosition++;
+        }
+        else if (a - lastAngle < -_PI / (float)encoderDivides)
+        {
+            motor->target -= _2PI / (float)encoderDivides;
+            lastAngle = motor->target;
+            encoderPosition--;
+        }
+    }
+    break;
+    case MODE_DAMPED:
+        if (limitPositionMax != 0 && limitPositionMin != 0)
         {
             auto a = GetPosition();
-            if (a - lastAngle > _PI / (float) encoderDivides)
+            if (a > limitPositionMax)
             {
-                motor->target += _2PI / (float) encoderDivides;
-                lastAngle = motor->target;
-                encoderPosition++;
-            } else if (a - lastAngle < -_PI / (float) encoderDivides)
+                motor->config.bldcMotor.controlMode = ANGLE;
+                motor->target = limitPositionMax;
+            }
+            else if (a < limitPositionMin)
             {
-                motor->target -= _2PI / (float) encoderDivides;
-                lastAngle = motor->target;
-                encoderPosition--;
+                motor->config.bldcMotor.controlMode = ANGLE;
+                motor->target = limitPositionMin;
+            }
+            else
+            {
+                motor->config.bldcMotor.controlMode = VELOCITY;
+                motor->target = 0;
             }
         }
-            break;
-        case MODE_DAMPED:
-            if (limitPositionMax != 0 && limitPositionMin != 0)
-            {
-                auto a = GetPosition();
-                if (a > limitPositionMax)
-                {
-                    motor->config.bldcMotor.controlMode = Motor::ANGLE;
-                    motor->target = limitPositionMax;
-                } else if (a < limitPositionMin)
-                {
-                    motor->config.bldcMotor.controlMode = Motor::ANGLE;
-                    motor->target = limitPositionMin;
-                } else
-                {
-                    motor->config.bldcMotor.controlMode = Motor::VELOCITY;
-                    motor->target = 0;
-                }
-            }
-            break;
-        case MODE_DISABLE:
-        case MODE_SPRING:
-        case MODE_SPIN:
-            break;
+        break;
+    case MODE_DISABLE:
+    case MODE_SPRING:
+    case MODE_SPIN:
+        break;
     }
 
-    motor->Tick();
+    motorTick();
 }
 
-
-void KnobSimulator::SetLimitPos(float _min, float _max)
+void knobSimulatorSetLimitPos(float _min, float _max)
 {
     limitPositionMin = _min;
     limitPositionMax = _max;
 }
 
+// void knobSimulatorApplyZeroPos(float _angle)
+// {
+//     if (_angle != 0)
+//         zeroPosition = _angle;
+//     else
+//         zeroPosition = motor->GetEstimateAngle();
+// }
 
-void KnobSimulator::ApplyZeroPos(float _angle)
-{
-    if (_angle != 0)
-        zeroPosition = _angle;
-    else
-        zeroPosition = motor->GetEstimateAngle();
-}
+// float knobSimulatorGetPosition()
+// {
+//     return motor->GetEstimateAngle() - zeroPosition;
+// }
 
+// float knobSimulatorGetVelocity()
+// {
+//     return motor->GetEstimateVelocity();
+// }
 
-float KnobSimulator::GetPosition()
-{
-    return motor->GetEstimateAngle() - zeroPosition;
-}
+// int knobSimulatorGetEncoderModePos()
+// {
+//     return std::lround(GetPosition() / (_2PI / (float)encoderDivides));
+// }
 
-float KnobSimulator::GetVelocity()
-{
-    return motor->GetEstimateVelocity();
-}
-
-
-int KnobSimulator::GetEncoderModePos()
-{
-    return std::lround(GetPosition() / (_2PI / (float) encoderDivides));
-}
-
-
-void KnobSimulator::SetEnable(bool _en)
-{
-    SetPowerMotor(_en);
-    motor->SetEnable(_en);
-}
-
+// void KnobSimulator::SetEnable(bool _en)
+// {
+//     SetPowerMotor(_en);
+//     motor->SetEnable(_en);
+// }

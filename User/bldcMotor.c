@@ -7,12 +7,11 @@
 #include "time_utils.h"
 #include "comm.h"
 
-
 float voltagePowerSupply;
 float currentLimit;
 float shaftVelocity;
 unsigned long open_loop_timestamp;
-float target;
+
 /******************************************************************************/
 float shaftAngle; //!< current motor angle
 float electricalAngle;
@@ -25,13 +24,11 @@ static float velocityOpenloop(float target_velocity);
 static float angleOpenloop(float target_angle);
 /******************************************************************************/
 
-
 BldcMotor bldcMotor;
 
-#if 1
 void motorInit(void)
 {
-    target = 0;
+    bldcMotor.target = 0;
 
     voltagePowerSupply = 12.0f;
 
@@ -45,54 +42,15 @@ void motorInit(void)
     pidInit(&bldcMotor.pidVelocity, 0.05, 0.5, 0, 1000, -uQ_MAX, uQ_MAX);
     pidInit(&bldcMotor.pidAngle, 20, 0, 0, 0, -bldcMotor.velocityLimit, bldcMotor.velocityLimit);
 
-    MagneticSensor_Init(0, UNKNOWN);
-
-    open_loop_timestamp = micros();
-
-
-}
-#else
-void motorInit(void)
-{
-
-    lowPassFilterInit(&bldcMotor.lpfVelocity, 0.02f);
-
-    lowPassFilterInit(&bldcMotor.lpfAngle, 0.03f);
-
-    bldcMotor.voltageUsedForSensorAlign = 2; // V 航模电机设置的值小一点比如0.5-1，云台电机设置的大一点比如2-3
-
-    bldcMotor.controlMode = ANGLE;   // ANGLE; //Type_torque; //VELOCITY
-                           // 0.2, 速度环PI参数，只用P参数方便快速调试
-    voltageLimit = uQ_MAX; // V，主要为限制电机最大电流，最大值需小于12/1.732=6.9
-
-    pidInit(&bldcMotor.pidVelocity, 0.05, 0.5, 0, 1000, -uQ_MAX, uQ_MAX);
-    // 速度爬升斜率最大限制，如果不需要可以设置为0
-
-    target = 0;
-
-    voltagePowerSupply = 12;
-    bldcMotor.velocityLimit = 20; // rad/s 角度模式时限制最大转速，力矩模式和速度模式不起作用
-    pidInit(&bldcMotor.pidAngle, 20, 0, 0, 0, -bldcMotor.velocityLimit, bldcMotor.velocityLimit);
-    // velocity control loop controls current
-    // 如果是电压模式限制电压，如果是电流模式限制电流
-
-    bldcMotor.pidVelocity.outMax = voltageLimit; // 速度模式的电流限制
-    // else
-    //     bldcMotor.pidVelocity.outMax = currentLimit;
-
-    if (bldcMotor.voltageUsedForSensorAlign > voltageLimit)
-        bldcMotor.voltageUsedForSensorAlign = voltageLimit;
-
-    MagneticSensor_Init(0, UNKNOWN);
+    magneticSensorInit(0, UNKNOWN, &bldcMotor);
 
     open_loop_timestamp = micros();
 }
-#endif
-
 
 /******************************************************************************/
-void loopFOC(void)
+void motorTick()
 {
+
     if (bldcMotor.controlMode != ANGLE_OPEN_LOOP &&
         bldcMotor.controlMode != VELOCITY_OPEN_LOOP)
     {
@@ -103,18 +61,18 @@ void loopFOC(void)
     switch (bldcMotor.controlMode)
     {
     case TORQUE:
-        voltage.q = ASSERT(phaseResistance) ? target * phaseResistance : target;
+        voltage.q = ASSERT(phaseResistance) ? bldcMotor.target * phaseResistance : bldcMotor.target;
         voltage.d = 0;
         setPointCurrent = voltage.q;
         break;
     case ANGLE:
 #if 0
-        setPointAngle = target;
+        setPointAngle = bldcMotor.target;
         float Kp = 0.05;
         setPhaseVoltage(CONSTRAINT(Kp * (setPointAngle - shaftAngle) * 180 / _PI, -uQ_MAX, uQ_MAX), 0, getElectricalAngle());
 #else
         // angle set point
-        setPointAngle = target;
+        setPointAngle = bldcMotor.target;
         // calculate velocity set point
         setPointVelocity = PID_operator(&bldcMotor.pidAngle, (setPointAngle - shaftAngle));
         // calculate the torque command
@@ -122,17 +80,17 @@ void loopFOC(void)
 #endif
         break;
     case VELOCITY:
-        setPointVelocity = target;
+        setPointVelocity = bldcMotor.target;
         // calculate the torque command
         setPointCurrent = PID_operator(&bldcMotor.pidVelocity, (setPointVelocity - shaftVelocity));
         break;
     case VELOCITY_OPEN_LOOP:
-        setPointVelocity = target;
+        setPointVelocity = bldcMotor.target;
         voltage.q = velocityOpenloop(setPointVelocity);
         voltage.d = 0;
         break;
     case ANGLE_OPEN_LOOP:
-        setPointAngle = target;
+        setPointAngle = bldcMotor.target;
         voltage.q = angleOpenloop(setPointAngle);
         voltage.d = 0;
         break;
@@ -164,7 +122,7 @@ static float velocityOpenloop(float target_velocity)
         Ts = 1e-3f;               // quick fix for strange cases (micros overflow + timestamp not defined)
     open_loop_timestamp = now_us; // save timestamp for next call
 
-    // calculate the necessary angle to achieve target velocity
+    // calculate the necessary angle to achieve bldcMotor.target velocity
     shaftAngle = normalizeAngle(shaftAngle + target_velocity * Ts);
     // for display purposes
     // shaftVelocity = target_velocity;
@@ -189,7 +147,7 @@ static float angleOpenloop(float target_angle)
         Ts = 1e-3f;               // quick fix for strange cases (micros overflow + timestamp not defined)
     open_loop_timestamp = now_us; // save timestamp for next call
 
-    // calculate the necessary angle to move from current position towards target angle
+    // calculate the necessary angle to move from current position towards bldcMotor.target angle
     // with maximal velocity (bldcMotor.velocityLimit)
     if (fabs(target_angle - shaftAngle) > bldcMotor.velocityLimit * Ts)
     {
@@ -220,6 +178,6 @@ void ThreadCtrlLoop(void *argument)
         // Suspended here until got Notification.
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        loopFOC();
+        motorTick();
     }
 }

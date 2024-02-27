@@ -36,17 +36,17 @@ static void working(void)
     {
         if (bldcMotor.controlMode == VELOCITY)
         {
-            if (target == 0)
+            if (bldcMotor.target == 0)
             {
-                target = 100;
+                bldcMotor.target = 100;
             }
-            else if (target == 100)
+            else if (bldcMotor.target == 100)
             {
-                target == -100;
+                bldcMotor.target == -100;
             }
-            else if (target == -100)
+            else if (bldcMotor.target == -100)
             {
-                target = 100;
+                bldcMotor.target = 100;
             }
         }
     }

@@ -37,14 +37,14 @@ extern float sensor_offset;
 
 /******************************************************************************/
 float getElectricalAngle(void);
-float getShaftVelocity(BldcMotor * motor);
+float getShaftVelocity(BldcMotor *motor);
 /******************************************************************************/
 
 /******************************************************************************/
-void MagneticSensor_Init(float zero_electric_offset, Direction _sensor_direction);
+void magneticSensorInit(float zero_electric_offset, Direction _sensor_direction, BldcMotor *motor);
 float getAngle(void);
 float getVelocity(void);
-bool alignSensor(void);
+bool alignSensor(BldcMotor *motor);
 float getShaftAngle(void);
 int getRPM(void);
 /******************************************************************************/

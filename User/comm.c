@@ -27,10 +27,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void printLog()
 {
 #if CALI_PID
-  printf("target=%.2f, velocity=%.2f, ShaftAngle=%.2f\n", target, shaftVelocity, shaftAngle);
-  //printf("target=%.2f, RPM=%d\n", target, getRPM());
+  printf("bldcMotor.target=%.2f, velocity=%.2f, ShaftAngle=%.2f\n", bldcMotor.target, shaftVelocity, shaftAngle);
+  //printf("bldcMotor.target=%.2f, RPM=%d\n", bldcMotor.target, getRPM());
 #elif SEND_RCC_DATA == 0
-  printf("velocity: %.2f, angle: %.2f, target: %.2f\n", shaftVelocity, shaftAngle, target);
+  printf("velocity: %.2f, angle: %.2f, bldcMotor.target: %.2f\n", shaftVelocity, shaftAngle, bldcMotor.target);
 #endif
 }
 
@@ -73,13 +73,13 @@ void commander_run(void)
     case 'H':
       // sprintf(sndBuff, "Hello World!\r\n");
       // HAL_UART_Transmit_DMA(&huart3, (uint8_t *)sndBuff, sizeof(sndBuff));
-      sprintf(sndBuff, "Hello World!\r\n", target);
+      sprintf(sndBuff, "Hello World!\r\n", bldcMotor.target);
       printf("%s", sndBuff);
       break;
     case 'T': // T6.28
 
-      target = atof((const char *)(rxUart.buf + 1));
-      sprintf(sndBuff, "Target=%.2f\r\n", target);
+      bldcMotor.target = atof((const char *)(rxUart.buf + 1));
+      sprintf(sndBuff, "Target=%.2f\r\n", bldcMotor.target);
       printf("%s", sndBuff);
       // HAL_UART_Transmit_DMA(&huart3, (uint8_t *)sndBuff, sizeof(sndBuff));
       break;

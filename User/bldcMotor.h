@@ -45,6 +45,7 @@ typedef struct
     PidController pidCurrentD;
     PidController pidVelocity;
     PidController pidAngle;
+    float target;
 } BldcMotor;
 
 extern float target;
@@ -60,7 +61,6 @@ extern float setPointVelocity;
 extern float setPointAngle;
 
 void motorInit(void);
-void move(void);
-void loopFOC(void);
+void motorTick(void);
 void ThreadCtrlLoop(void *argument);
 #endif
