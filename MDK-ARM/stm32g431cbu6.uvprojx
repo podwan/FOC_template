@@ -1647,6 +1647,11 @@
               <FileType>1</FileType>
               <FilePath>..\User\app.c</FilePath>
             </File>
+            <File>
+              <FileName>knob.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\knob.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

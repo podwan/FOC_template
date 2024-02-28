@@ -52,6 +52,7 @@
 "stm32g431cbu6\key.o"
 "stm32g431cbu6\led.o"
 "stm32g431cbu6\app.o"
+"stm32g431cbu6\knob.o"
 "stm32g431cbu6\croutine.o"
 "stm32g431cbu6\event_groups.o"
 "stm32g431cbu6\list.o"

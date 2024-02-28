@@ -48,20 +48,20 @@ void motorInit(void)
 }
 
 /******************************************************************************/
-void motorTick()
+void motorTick(BldcMotor *motor)
 {
 
-    if (bldcMotor.controlMode != ANGLE_OPEN_LOOP &&
-        bldcMotor.controlMode != VELOCITY_OPEN_LOOP)
+    if (motor->controlMode != ANGLE_OPEN_LOOP &&
+        motor->controlMode != VELOCITY_OPEN_LOOP)
     {
-        shaftAngle = getShaftAngle();
+        shaftAngle = getShaftAngle(motor);
     }
-    shaftVelocity = getShaftVelocity(&bldcMotor);
+    shaftVelocity = getShaftVelocity(motor);
 
-    switch (bldcMotor.controlMode)
+    switch (motor->controlMode)
     {
     case TORQUE:
-        voltage.q = ASSERT(phaseResistance) ? bldcMotor.target * phaseResistance : bldcMotor.target;
+        voltage.q = ASSERT(phaseResistance) ? motor->target * phaseResistance : bldcMotor.target;
         voltage.d = 0;
         setPointCurrent = voltage.q;
         break;
@@ -74,23 +74,23 @@ void motorTick()
         // angle set point
         setPointAngle = bldcMotor.target;
         // calculate velocity set point
-        setPointVelocity = PID_operator(&bldcMotor.pidAngle, (setPointAngle - shaftAngle));
+        setPointVelocity = PID_operator(&motor->pidAngle, (setPointAngle - shaftAngle));
         // calculate the torque command
-        setPointCurrent = PID_operator(&bldcMotor.pidVelocity, (setPointVelocity - shaftVelocity)); // if voltage torque control                                                           // if torque controlled through voltage
+        setPointCurrent = PID_operator(&motor->pidVelocity, (setPointVelocity - shaftVelocity)); // if voltage torque control                                                           // if torque controlled through voltage
 #endif
         break;
     case VELOCITY:
-        setPointVelocity = bldcMotor.target;
+        setPointVelocity = motor->target;
         // calculate the torque command
-        setPointCurrent = PID_operator(&bldcMotor.pidVelocity, (setPointVelocity - shaftVelocity));
+        setPointCurrent = PID_operator(&motor->pidVelocity, (setPointVelocity - shaftVelocity));
         break;
     case VELOCITY_OPEN_LOOP:
-        setPointVelocity = bldcMotor.target;
+        setPointVelocity = motor->target;
         voltage.q = velocityOpenloop(setPointVelocity);
         voltage.d = 0;
         break;
     case ANGLE_OPEN_LOOP:
-        setPointAngle = bldcMotor.target;
+        setPointAngle = motor->target;
         voltage.q = angleOpenloop(setPointAngle);
         voltage.d = 0;
         break;
@@ -108,6 +108,23 @@ void motorTick()
     voltage.d = 0;
     // set the phase voltage - FOC heart function :)
     setPhaseVoltage(voltage.q, voltage.d, electricalAngle);
+}
+void motorSetTorqueLimit(BldcMotor *motor, float _val)
+{
+    motor->voltageLimit = _val;
+    motor->currentLimit = _val;
+
+    if (motor->voltageLimit > voltagePowerSupply)
+        motor->voltageLimit = voltagePowerSupply;
+
+    if (motor->voltageUsedForSensorAlign > motor->voltageLimit)
+        motor->voltageUsedForSensorAlign = motor->voltageLimit;
+
+    motor->pidVelocity.outMax = motor->voltageLimit;
+    motor->pidVelocity.outMin = -motor->voltageLimit;
+
+    motor->pidAngle.outMax = motor->velocityLimit;
+    motor->pidAngle.outMin = -motor->velocityLimit;
 }
 
 /******************************************************************************/
@@ -178,6 +195,6 @@ void ThreadCtrlLoop(void *argument)
         // Suspended here until got Notification.
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        motorTick();
+        motorTick(&bldcMotor); ///
     }
 }

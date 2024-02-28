@@ -22,12 +22,21 @@ Dialog DLL:      TCM.DLL V1.53.0.0
  
 <h2>Project:</h2>
 C:\Users\18575\Desktop\BLDCfirmware\C\MDK-ARM\stm32g431cbu6.uvprojx
-Project File Date:  02/21/2024
+Project File Date:  02/28/2024
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Build target 'stm32g431cbu6'
-"stm32g431cbu6\stm32g431cbu6.axf" - 0 Error(s), 0 Warning(s).
+compiling sensor.c...
+..\User\sensor.c(201): warning:  #188-D: enumerated type mixed with another type
+              return 0;
+..\User\sensor.c(242): warning:  #188-D: enumerated type mixed with another type
+      return 1;
+..\User\sensor.c: 2 warnings, 0 errors
+linking...
+Program Size: Code=41920 RO-data=1832 RW-data=384 ZI-data=25568  
+FromELF: creating hex file...
+"stm32g431cbu6\stm32g431cbu6.axf" - 0 Error(s), 2 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -51,7 +60,7 @@ Package Vendor: Keil
 
    * Component: ARM::CMSIS:CORE:5.5.0
       Include file:  CMSIS\Core\Include\tz_context.h
-Build Time Elapsed:  00:00:00
+Build Time Elapsed:  00:00:16
 </pre>
 </body>
 </html>

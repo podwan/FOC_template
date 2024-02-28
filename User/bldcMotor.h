@@ -61,6 +61,7 @@ extern float setPointVelocity;
 extern float setPointAngle;
 
 void motorInit(void);
-void motorTick(void);
+void motorTick(BldcMotor *motor);
 void ThreadCtrlLoop(void *argument);
+void motorSetTorqueLimit(BldcMotor *motor, float _val);
 #endif

@@ -45,7 +45,7 @@ void magneticSensorInit(float zero_electric_offset, Direction _sensor_direction,
 float getAngle(void);
 float getVelocity(void);
 bool alignSensor(BldcMotor *motor);
-float getShaftAngle(void);
+float getShaftAngle(BldcMotor *motor);
 int getRPM(void);
 /******************************************************************************/
 #endif

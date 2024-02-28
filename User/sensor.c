@@ -94,7 +94,7 @@ void magneticSensorInit(float zero_electric_offset, Direction _sensor_direction,
     delay(50);
     shaftVelocity = getShaftVelocity(motor); // 必须调用一次，进入主循环后速度为0
     delay(5);
-    shaftAngle = getShaftAngle(); // shaft angle
+    shaftAngle = getShaftAngle(motor); // shaft angle
     if (motor->controlMode == ANGLE)
         motor->target = shaftAngle; // 角度模式，以当前的角度为目标角度，进入主循环后电机静止
 
@@ -228,7 +228,7 @@ bool alignSensor(BldcMotor *motor)
     {
         setPhaseVoltage(motor->voltageUsedForSensorAlign, 0, _3PI_2); // 计算零点偏移角度
         delay(700);
-        zero_electric_angle = normalizeAngle(getShaftAngle() * polePairs);
+        zero_electric_angle = normalizeAngle(getShaftAngle(motor) * polePairs);
         delay(20);
         printf("MOT: Zero elec. angle:");
         printf("%.4f\r\n", zero_electric_angle);
@@ -251,11 +251,13 @@ bool alignSensor(BldcMotor *motor)
 
 /******************************************************************************/
 // shaft angle calculation
-float getShaftAngle(void)
+float getShaftAngle(BldcMotor *motor)
 {
-    // if no sensor linked return previous value ( for open loop )
-    // if(!sensor) return shaftAngle;
-    return countDirection * getAngle() - sensor_offset;
+
+    // float rawAngle = countDirection * getAngle() - sensor_offset;
+    // return lowPassFiltering(&motor->lpfAngle, rawAngle);
+
+     return countDirection * getAngle() - sensor_offset;
 }
 // shaft velocity calculation
 float getShaftVelocity(BldcMotor *motor)
